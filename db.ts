@@ -38,7 +38,7 @@ db.on('populate', () => {
   
   // Seed default settings
   db.settings.add({
-    pgName: 'Square PG',
+    pgName: 'Ashirwad PG',
     address: '123, Tech Street, Bangalore',
     defaultRentDay: 5,
     managerName: 'Admin',
