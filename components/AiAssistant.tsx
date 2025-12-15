@@ -106,7 +106,7 @@ const AiAssistant: React.FC<AiAssistantProps> = ({ isOpen, onClose }) => {
         <div className="bg-primary p-4 flex justify-between items-center text-primary-foreground">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-yellow-300" />
-            <h3 className="font-semibold text-sm">SquarePG Assistant</h3>
+            <h3 className="font-semibold text-sm">AshirwadPG Assistant</h3>
           </div>
           <button onClick={onClose} className="hover:bg-primary-foreground/10 p-1 rounded-full transition-colors">
             <X className="w-4 h-4" />

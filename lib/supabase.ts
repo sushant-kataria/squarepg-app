@@ -37,3 +37,49 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 export const isSupabaseConfigured = () => {
   return SUPABASE_URL.includes('supabase.co') && SUPABASE_URL !== 'https://your-project.supabase.co';
 };
+
+/**
+ * Check if user is in demo mode
+ */
+export const isDemoMode = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  return localStorage.getItem('pg_demo_mode') === 'true';
+};
+
+/**
+ * Get the current owner_id based on authentication state
+ * Returns demo owner ID if in demo mode, otherwise returns null (RLS handles it)
+ */
+export const getCurrentOwnerId = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  
+  const demoMode = localStorage.getItem('pg_demo_mode') === 'true';
+  const demoEmail = localStorage.getItem('pg_user_email');
+  
+  if (demoMode && demoEmail === 'demo.owner@ashirwadpg.com') {
+    return '00000000-0000-0000-0000-000000000001';
+  }
+  
+  // For real users, RLS will handle filtering by auth.uid()
+  return null;
+};
+
+/**
+ * Check if current user is demo owner
+ */
+export const isDemoOwner = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const demoMode = localStorage.getItem('pg_demo_mode') === 'true';
+  const demoEmail = localStorage.getItem('pg_user_email');
+  return demoMode && demoEmail === 'demo.owner@ashirwadpg.com';
+};
+
+/**
+ * Check if current user is demo tenant
+ */
+export const isDemoTenant = (): boolean => {
+  if (typeof window === 'undefined') return false;
+  const demoMode = localStorage.getItem('pg_demo_mode') === 'true';
+  const demoEmail = localStorage.getItem('pg_user_email');
+  return demoMode && demoEmail === 'demo.tenant@ashirwadpg.com';
+};

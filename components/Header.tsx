@@ -2,12 +2,32 @@ import React, { useState } from 'react';
 import { Search, Bell, Sparkles, Sun, Moon, Menu, LogOut, Check } from 'lucide-react';
 import { useTheme } from '../context/ThemeContext';
 import { useAuth } from '../context/AuthContext';
-import { useLiveQuery } from 'dexie-react-hooks';
-import { db } from '../db';
+import { useSupabase } from '../hooks/useSupabase';
 
 interface HeaderProps {
   onOpenAi: () => void;
   onToggleMenu: () => void;
+}
+
+interface Payment {
+  id: number;
+  tenantId: number;
+  amount: number;
+  status: string;
+  tenants: {
+    name: string;
+    room_number: string;
+  };
+}
+
+interface Complaint {
+  id: number;
+  tenantId: number;
+  title: string;
+  status: string;
+  tenants: {
+    name: string;
+  };
 }
 
 const Header: React.FC<HeaderProps> = ({ onOpenAi, onToggleMenu }) => {
@@ -15,11 +35,23 @@ const Header: React.FC<HeaderProps> = ({ onOpenAi, onToggleMenu }) => {
   const { signOut, user, role } = useAuth();
   const [showNotifications, setShowNotifications] = useState(false);
 
-  // Queries for notifications
-  const pendingTenants = useLiveQuery(() => db.tenants.where('rentStatus').equals('Pending').toArray());
-  const openComplaints = useLiveQuery(() => db.complaints.where('status').equals('Open').toArray());
+  // Fetch payments with tenant info
+  const { data: allPayments } = useSupabase<Payment>('payments', '*, tenants!inner(name, room_number)');
+  
+  // Fetch complaints with tenant info
+  const { data: allComplaints } = useSupabase<Complaint>('complaints', '*, tenants!inner(name)');
 
-  const notificationCount = (pendingTenants?.length || 0) + (openComplaints?.length || 0);
+  // Filter for pending/overdue payments
+  const pendingPayments = allPayments.filter(p => 
+    p.status === 'Pending' || p.status === 'Overdue'
+  );
+
+  // Filter for open/pending complaints
+  const openComplaints = allComplaints.filter(c => 
+    c.status === 'Pending' || c.status === 'Open'
+  );
+
+  const notificationCount = pendingPayments.length + openComplaints.length;
 
   return (
     <header className="h-16 bg-background/80 backdrop-blur-md border-b border-border flex items-center justify-between px-4 md:px-6 sticky top-0 z-20">
@@ -84,21 +116,27 @@ const Header: React.FC<HeaderProps> = ({ onOpenAi, onToggleMenu }) => {
                     </div>
                  ) : (
                    <div className="p-1">
-                      {pendingTenants?.map(t => (
-                        <div key={`t-${t.id}`} className="p-3 hover:bg-muted/50 rounded-lg flex gap-3 transition-colors border-b border-border last:border-0">
+                      {pendingPayments.map(payment => (
+                        <div key={`payment-${payment.id}`} className="p-3 hover:bg-muted/50 rounded-lg flex gap-3 transition-colors border-b border-border last:border-0">
                            <div className="w-2 h-2 rounded-full bg-orange-500 mt-2 flex-shrink-0" />
                            <div>
-                              <p className="text-sm font-medium text-foreground">Rent Pending</p>
-                              <p className="text-xs text-muted-foreground">{t.name} (Room {t.roomNumber}) owes ₹{t.rentAmount}</p>
+                              <p className="text-sm font-medium text-foreground">
+                                {payment.status === 'Overdue' ? 'Rent Overdue' : 'Rent Pending'}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {payment.tenants?.name} (Room {payment.tenants?.room_number}) owes ₹{payment.amount}
+                              </p>
                            </div>
                         </div>
                       ))}
-                      {openComplaints?.map(c => (
-                        <div key={`c-${c.id}`} className="p-3 hover:bg-muted/50 rounded-lg flex gap-3 transition-colors border-b border-border last:border-0">
+                      {openComplaints.map(complaint => (
+                        <div key={`complaint-${complaint.id}`} className="p-3 hover:bg-muted/50 rounded-lg flex gap-3 transition-colors border-b border-border last:border-0">
                            <div className="w-2 h-2 rounded-full bg-red-500 mt-2 flex-shrink-0" />
                            <div>
                               <p className="text-sm font-medium text-foreground">New Complaint</p>
-                              <p className="text-xs text-muted-foreground">{c.title} by {c.tenantName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {complaint.title} by {complaint.tenants?.name}
+                              </p>
                            </div>
                         </div>
                       ))}

@@ -2,7 +2,7 @@ import Dexie, { Table } from 'dexie';
 import { Tenant, Room, Payment, Complaint, SettingsData } from './types';
 import { MOCK_TENANTS, MOCK_ROOMS } from './constants';
 
-export class SquarePGDatabase extends Dexie {
+export class AshirwadPGDatabase extends Dexie {
   tenants!: Table<Tenant>;
   rooms!: Table<Room>;
   payments!: Table<Payment>;
@@ -10,7 +10,7 @@ export class SquarePGDatabase extends Dexie {
   settings!: Table<SettingsData>;
 
   constructor() {
-    super('SquarePGDB');
+    super('SAshirwadPGDB');
     // Bumped version to 4 to fix missing index on tenantName
     this.version(4).stores({
       tenants: '++id, name, roomNumber, status, rentStatus, email', // Added email index
@@ -22,7 +22,7 @@ export class SquarePGDatabase extends Dexie {
   }
 }
 
-export const db = new SquarePGDatabase();
+export const db = new AshirwadPGDatabase();
 
 // Seed data if empty
 db.on('populate', () => {

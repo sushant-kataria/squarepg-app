@@ -7,7 +7,7 @@ interface EditTenantModalProps {
   isOpen: boolean;
   onClose: () => void;
   tenant: Tenant | null;
-  onUpdate: () => void; // Trigger refresh parent
+  onUpdate: () => void;
 }
 
 const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tenant, onUpdate }) => {
@@ -28,7 +28,7 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tena
     if (isOpen && tenant) {
         setFormData({
             name: tenant.name,
-            roomNumber: tenant.roomNumber || '', // Handle null/undefined
+            roomNumber: tenant.roomNumber || '',
             phone: tenant.phone,
             email: tenant.email,
             rentAmount: tenant.rentAmount.toString(),
@@ -40,21 +40,33 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tena
 
   const fetchRooms = async () => {
       setLoadingRooms(true);
-      // Fetch Available rooms OR the current room of the tenant (so it appears in list)
-      const { data } = await supabase
-        .from('rooms')
-        .select('*');
+      const { data } = await supabase.from('rooms').select('*');
       
       if (data) {
-          // Filter: Available OR matches current tenant's room
-          const filtered = data.filter(r => 
-              r.status === RoomStatus.AVAILABLE || 
-              (tenant && String(r.number) === String(tenant.roomNumber))
-          );
+          // Map database format (snake_case) to TypeScript format (camelCase)
+          const mappedRooms: Room[] = data.map((r: any) => ({
+              id: r.id,
+              number: r.number,
+              type: r.type,
+              status: r.status,
+              price: r.price,
+              floor: r.floor,
+              capacity: r.capacity || 1,
+              currentOccupancy: r.current_occupancy || 0
+          }));
+
+          // Filter rooms that have space OR are the current tenant's room
+          const filtered = mappedRooms.filter(r => {
+              const isCurrentRoom = tenant && String(r.number) === String(tenant.roomNumber);
+              const hasSpace = r.currentOccupancy < r.capacity;
+              const isAvailableStatus = r.status === RoomStatus.AVAILABLE || r.status === RoomStatus.OCCUPIED;
+              
+              return isCurrentRoom || (hasSpace && isAvailableStatus);
+          });
           setAvailableRooms(filtered);
       }
       setLoadingRooms(false);
-  }
+  };
 
   if (!isOpen || !tenant) return null;
 
@@ -65,39 +77,61 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tena
       const oldRoomNumber = tenant.roomNumber;
       const newRoomNumber = formData.roomNumber;
 
-      // 1. Handle Room Status Changes
+      // Handle Room Occupancy Changes
       if (newRoomNumber !== oldRoomNumber) {
-          // A. If they moved OUT of an old room, mark it AVAILABLE
+          // Decrease occupancy of old room
           if (oldRoomNumber) {
-              const { data: oldRoom } = await supabase
+              const { data: oldRoomData } = await supabase
                 .from('rooms')
-                .select('id')
+                .select('*')
                 .eq('number', oldRoomNumber)
                 .maybeSingle();
                 
-              if (oldRoom) {
-                  await supabase.from('rooms').update({ status: RoomStatus.AVAILABLE }).eq('id', oldRoom.id);
+              if (oldRoomData) {
+                  const newOccupancy = Math.max(0, (oldRoomData.current_occupancy || 0) - 1);
+                  const capacity = oldRoomData.capacity || 1;
+                  const newStatus = newOccupancy === 0 ? RoomStatus.AVAILABLE : 
+                                   newOccupancy >= capacity ? RoomStatus.OCCUPIED : 
+                                   RoomStatus.AVAILABLE;
+                  
+                  await supabase
+                    .from('rooms')
+                    .update({ 
+                        current_occupancy: newOccupancy,
+                        status: newStatus
+                    })
+                    .eq('id', oldRoomData.id);
               }
           }
 
-          // B. If they moved INTO a new room, mark it OCCUPIED
+          // Increase occupancy of new room
           if (newRoomNumber) {
-              const { data: newRoom } = await supabase
+              const { data: newRoomData } = await supabase
                 .from('rooms')
-                .select('id')
+                .select('*')
                 .eq('number', newRoomNumber)
                 .maybeSingle();
 
-              if (newRoom) {
-                  await supabase.from('rooms').update({ status: RoomStatus.OCCUPIED }).eq('id', newRoom.id);
+              if (newRoomData) {
+                  const newOccupancy = (newRoomData.current_occupancy || 0) + 1;
+                  const capacity = newRoomData.capacity || 1;
+                  const newStatus = newOccupancy >= capacity ? RoomStatus.OCCUPIED : RoomStatus.AVAILABLE;
+                  
+                  await supabase
+                    .from('rooms')
+                    .update({ 
+                        current_occupancy: newOccupancy,
+                        status: newStatus
+                    })
+                    .eq('id', newRoomData.id);
               }
           }
       }
 
-      // 2. Update Tenant
+      // Update Tenant
       const { error } = await supabase.from('tenants').update({
         name: formData.name,
-        roomNumber: formData.roomNumber || null, // Send null if empty
+        roomNumber: formData.roomNumber || null,
         phone: formData.phone,
         email: formData.email,
         rentAmount: Number(formData.rentAmount),
@@ -148,7 +182,6 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tena
                     setFormData({
                         ...formData, 
                         roomNumber: e.target.value,
-                        // Optionally auto-update price if they select a room (and not unassigning)
                         rentAmount: selectedRoom ? selectedRoom.price.toString() : formData.rentAmount
                     });
                 }}
@@ -156,11 +189,18 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tena
               >
                   <option value="">Unassign (No Room)</option>
                   {loadingRooms && <option disabled>Loading...</option>}
-                  {availableRooms.map(room => (
-                      <option key={room.id} value={room.number}>
-                          {room.number} ({room.type} - ₹{room.price})
-                      </option>
-                  ))}
+                  {availableRooms.map(room => {
+                      const occupancy = room.currentOccupancy || 0;
+                      const capacity = room.capacity || 1;
+                      const isCurrent = tenant && String(room.number) === String(tenant.roomNumber);
+                      
+                      return (
+                          <option key={room.id} value={room.number}>
+                              {room.number} - {room.type} ({occupancy}/{capacity}) - ₹{room.price}
+                              {isCurrent ? ' (Current)' : ''}
+                          </option>
+                      );
+                  })}
               </select>
             </div>
             <div className="space-y-2">
@@ -176,15 +216,18 @@ const EditTenantModal: React.FC<EditTenantModalProps> = ({ isOpen, onClose, tena
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground uppercase">Phone Number</label>
-            <input 
-              required
-              type="tel"
-              value={formData.phone}
-              onChange={e => setFormData({...formData, phone: e.target.value})}
-              className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none"
-            />
-          </div>
+          <label className="text-xs font-medium text-muted-foreground uppercase">
+            Phone Number
+          </label>
+          <input 
+            required
+            type="tel"
+            value={formData.phone}
+            onChange={e => setFormData({...formData, phone: e.target.value})}
+            className="w-full px-3 py-2 bg-secondary/50 border border-border rounded-lg text-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all"
+            placeholder="9876543210"
+          />
+        </div>
 
           <div className="space-y-2">
             <label className="text-xs font-medium text-muted-foreground uppercase">Email</label>

@@ -1,4 +1,3 @@
-
 export enum RoomType {
   SINGLE = 'Single',
   DOUBLE = 'Double',
@@ -12,24 +11,33 @@ export enum RoomStatus {
 }
 
 export interface Tenant {
-  id?: string | number; 
+  id?: string | number;
+  owner_id?: string; // Add this
   name: string;
-  roomNumber: string;
-  joinDate: string;
-  status: 'Active' | 'Notice Period' | 'Left';
-  rentStatus: 'Paid' | 'Pending' | 'Overdue';
-  phone: string;
   email: string;
+  phone: string;
+  roomNumber: string;
   rentAmount: number;
+  rentStatus: 'Paid' | 'Pending' | 'Overdue';
+  moveInDate?: string;
+  joinDate?: string; // Add this - your DB uses this field name
+  status: 'Active' | 'Notice Period' | 'Left';
+  address?: string;
+  auth_user_id?: string;
+  created_at?: string; // Add this
 }
 
+
 export interface Room {
-  id?: string | number; 
+  id?: string | number;
   number: string;
   type: RoomType;
   status: RoomStatus;
   price: number;
   floor: number;
+  capacity: number;
+  currentOccupancy?: number; // Made optional
+  current_occupancy?: number; // Alternative naming
 }
 
 export interface Payment {
@@ -39,7 +47,8 @@ export interface Payment {
   amount: number;
   date: string;
   type: 'Rent' | 'Security Deposit' | 'Bill' | 'Other';
-  method: 'Cash' | 'UPI' | 'Bank Transfer';
+  method: 'Cash' | 'UPI' | 'Bank Transfer' | 'Card';
+  notes?: string;
 }
 
 export interface Expense {
@@ -49,18 +58,20 @@ export interface Expense {
   category: 'Maintenance' | 'Utilities' | 'Staff' | 'Supplies' | 'Other';
   date: string;
   description?: string;
+  receipt?: string;
 }
 
 export interface Complaint {
-  id?: string | number;
-  tenantId?: string | number;
-  tenantName: string;
+  id?: number;
+  tenantId: number;
   title: string;
   description: string;
-  status: 'Open' | 'In Progress' | 'Resolved';
+  status: 'Pending' | 'In Progress' | 'Resolved';
   priority: 'Low' | 'Medium' | 'High';
-  date: string;
+  created_at?: string;
+  tenantName?: string; // Add this optional property
 }
+
 
 export interface SettingsData {
   id?: string | number;
@@ -69,7 +80,13 @@ export interface SettingsData {
   defaultRentDay: number;
   managerName: string;
   managerPhone: string;
+  managerEmail?: string;
+  totalRooms?: number;
+  defaultRent?: number;
 }
+
+// Alias for Settings
+export interface Settings extends SettingsData {}
 
 export interface MonthlyStat {
   name: string;
@@ -83,3 +100,18 @@ export interface DashboardStats {
   totalRevenue: number;
   pendingDues: number;
 }
+
+export interface Invitation {
+  id?: number;
+  tenant_id: number;
+  tenant_email: string;
+  tenant_name: string;
+  token: string;
+  is_accepted: boolean;
+  created_at?: string;
+  expires_at?: string;
+  accepted_at?: string;
+}
+
+// User Role Type
+export type UserRole = 'owner' | 'tenant';

@@ -13,7 +13,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
   const { role, signOut } = useAuth();
 
   const menuItems = role === 'owner' ? [
-    { icon: LayoutDashboard, label: 'Dashboard', path: '/' },
+    { icon: LayoutDashboard, label: 'Dashboard', path: '/dashboard' },
     { icon: Users, label: 'Tenants', path: '/tenants' },
     { icon: BedDouble, label: 'Rooms', path: '/rooms' },
     { icon: Wallet, label: 'Payments', path: '/payments' },
@@ -33,7 +33,7 @@ const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
           <div className="w-8 h-8 bg-primary rounded-lg flex items-center justify-center text-primary-foreground">
             <Hexagon className="w-5 h-5 fill-current" />
           </div>
-          <span className="text-lg font-bold tracking-tight">SquarePG</span>
+          <span className="text-lg font-bold tracking-tight">AshirwadPG</span>
         </div>
         <button onClick={onClose} className="md:hidden p-1 text-muted-foreground hover:text-foreground">
           <X className="w-5 h-5" />
